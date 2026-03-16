@@ -113,68 +113,83 @@ export const analyzeEdition = async (editionData: any[], monitors: ServerMonitor
     const text = extractTextFromHtml(rawText);
     const normText = normalizeString(text);
     
+    // Identifica todos os monitores que tiveram match nesta matéria
+    const matchingMonitors: ServerMonitor[] = [];
     for (const monitor of activeMonitors) {
       const normName = monitor.name ? normalizeString(monitor.name) : '';
       const normRf = monitor.rf ? normalizeRf(monitor.rf) : '';
       
-      const hasName = normName !== '' && normText.includes(normName);
-      const hasRf = normRf !== '' && normText.includes(normRf);
-      
-      if (hasName || hasRf) {
-        addSystemLog('info', `Match encontrado: ${monitor.name || monitor.rf}`, `Matéria: ${materia.unidade || 'N/A'}`);
+      if ((normName !== '' && normText.includes(normName)) || (normRf !== '' && normText.includes(normRf))) {
+        matchingMonitors.push(monitor);
+      }
+    }
 
-        // Validação via IA se possível e se o texto for relevante
-        if (text.length > 100 && import.meta.env.VITE_GEMINI_API_KEY) {
-          try {
-            const aiResults = await analyzeTextWithGemini(text, [{ name: monitor.name, rf: monitor.rf }]);
-            if (aiResults && aiResults.length > 0) {
-              const filteredAi = aiResults.filter((r: any) => 
-                (normName && normalizeString(r.monitorName).includes(normName)) || 
-                (normRf && normalizeRf(r.monitorRf) === normRf)
+    if (matchingMonitors.length > 0) {
+      addSystemLog('info', `Matches encontrados: ${matchingMonitors.length}`, `Matéria: ${materia.unidade || 'N/A'}`);
+
+      let aiProcessed = false;
+      // Validação via IA se possível
+      if (text.length > 100 && import.meta.env.VITE_GEMINI_API_KEY) {
+        try {
+          const aiResults = await analyzeTextWithGemini(text, matchingMonitors.map(m => ({ name: m.name, rf: m.rf })));
+          if (aiResults && aiResults.length > 0) {
+            for (const res of aiResults) {
+              const monitor = matchingMonitors.find(m => 
+                (m.name && normalizeString(res.monitorName).includes(normalizeString(m.name))) || 
+                (m.rf && normalizeRf(res.monitorRf) === normalizeRf(m.rf))
               );
-              
-              if (filteredAi.length > 0) {
-                results.push(...filteredAi.map((r: any) => ({
-                  ...r,
+
+              if (monitor) {
+                results.push({
+                  ...res,
                   id: crypto.randomUUID(),
                   monitorId: monitor.id,
-                  // O link do portal já é absoluto
                   url: materia.link || generateDospLink(analysisDate, monitor.name, materia.documento)
-                })));
-                continue; 
+                });
               }
             }
-          } catch (e) {
-            // IA falhou ou quota excedida, segue para heurística
+            aiProcessed = true;
           }
+        } catch (e) {
+          // IA falhou ou quota excedida, segue para heurística
         }
+      }
 
-        let confidence: 'high' | 'medium' | 'low' = 'low';
-        let matchType: 'exact' | 'flexible' | 'proximity' = 'exact';
-        
-        if (hasName && hasRf) {
-          confidence = isNear(text, monitor.name, monitor.rf) ? 'high' : 'medium';
-          matchType = 'proximity';
-        } else if (hasRf) {
-          confidence = 'medium';
-          matchType = 'exact';
-        } else if (hasName) {
-          confidence = 'low';
-          matchType = 'flexible';
+      // Se a IA não foi usada ou falhou, usa a heurística simples para todos os matches
+      if (!aiProcessed) {
+        for (const monitor of matchingMonitors) {
+          const normName = monitor.name ? normalizeString(monitor.name) : '';
+          const normRf = monitor.rf ? normalizeRf(monitor.rf) : '';
+          const hasName = normName !== '' && normText.includes(normName);
+          const hasRf = normRf !== '' && normText.includes(normRf);
+
+          let confidence: 'high' | 'medium' | 'low' = 'low';
+          let matchType: 'exact' | 'flexible' | 'proximity' = 'exact';
+          
+          if (hasName && hasRf) {
+            confidence = isNear(text, monitor.name, monitor.rf) ? 'high' : 'medium';
+            matchType = 'proximity';
+          } else if (hasRf) {
+            confidence = 'medium';
+            matchType = 'exact';
+          } else if (hasName) {
+            confidence = 'low';
+            matchType = 'flexible';
+          }
+          
+          results.push({
+            id: crypto.randomUUID(),
+            monitorId: monitor.id,
+            monitorName: monitor.name,
+            monitorRf: monitor.rf,
+            title: materia.unidade || materia.orgao || 'Matéria DO',
+            content: text.replace(/<[^>]*>/g, ' ').trim(),
+            page: materia.pagina || 'Diário Aberto',
+            url: materia.link || generateDospLink(analysisDate, monitor.name, materia.documento),
+            confidence,
+            matchType
+          });
         }
-        
-        results.push({
-          id: crypto.randomUUID(),
-          monitorId: monitor.id,
-          monitorName: monitor.name,
-          monitorRf: monitor.rf,
-          title: materia.unidade || materia.orgao || 'Matéria DO',
-          content: text.replace(/<[^>]*>/g, ' ').trim(), // Limpa HTML para o card
-          page: materia.pagina || 'Diário Aberto',
-          url: materia.link || generateDospLink(analysisDate, monitor.name, materia.documento),
-          confidence,
-          matchType
-        });
       }
     }
   }
