@@ -1,10 +1,10 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-const getAi = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+const getAi = () => new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
 
 export const analyzeTextWithGemini = async (text: string, monitors: { name: string, rf: string }[]) => {
-  if (!process.env.API_KEY) {
+  if (!import.meta.env.VITE_GEMINI_API_KEY) {
     console.warn("API Key do Gemini não configurada. Usando heurística simples.");
     return [];
   }

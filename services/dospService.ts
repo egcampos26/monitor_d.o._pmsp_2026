@@ -124,7 +124,7 @@ export const analyzeEdition = async (editionData: any[], monitors: ServerMonitor
         addSystemLog('info', `Match encontrado: ${monitor.name || monitor.rf}`, `Matéria: ${materia.unidade || 'N/A'}`);
 
         // Validação via IA se possível e se o texto for relevante
-        if (text.length > 100 && process.env.API_KEY) {
+        if (text.length > 100 && import.meta.env.VITE_GEMINI_API_KEY) {
           try {
             const aiResults = await analyzeTextWithGemini(text, [{ name: monitor.name, rf: monitor.rf }]);
             if (aiResults && aiResults.length > 0) {
