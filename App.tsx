@@ -152,6 +152,16 @@ const App: React.FC = () => {
     catch (e) { console.error(`Erro ao salvar '${key}' no localStorage:`, e); }
   };
 
+  const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
+    try {
+      const saved = localStorage.getItem(key);
+      return saved ? JSON.parse(saved) : defaultValue;
+    } catch (e) {
+      console.error(`Erro ao carregar '${key}' do localStorage:`, e);
+      return defaultValue;
+    }
+  };
+
   const addMonitor = async (newM: Omit<ServerMonitor, 'id' | 'createdAt'>) => {
     try {
       const { data, error } = await supabase
@@ -210,13 +220,12 @@ const App: React.FC = () => {
   const importMonitors = async (imported: Omit<ServerMonitor, 'id' | 'createdAt'>[]) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error('Você não está autenticado no Supabase. Por favor, faça login novamente.');
-      }
+      if (!session) throw new Error('Sessão expirada. Faça login novamente.');
 
-      addSystemLog('info', 'Iniciando importação para o banco de dados...', `Processando ${imported.length} registros.`);
+      addSystemLog('info', 'Iniciando importação...', `Processando ${imported.length} registros.`);
 
+      // Removendo user_id explícito para deixar o default (auth.uid()) do Supabase agir,
+      // assim como funciona no addMonitor manual.
       const { data, error } = await supabase
         .from('monitors')
         .insert(imported.map(m => ({
@@ -224,37 +233,41 @@ const App: React.FC = () => {
           rf: m.rf,
           role: m.role,
           notes: m.notes,
-          user_id: session.user.id,
           active: true
         })))
         .select();
 
       if (error) {
-        console.error('Erro retornado pelo Supabase:', error);
+        console.error('Erro na importação Supabase:', error);
         throw error;
       }
 
-      if (data) {
-        setMonitors(prev => [...prev, ...data]);
-        addSystemLog('success', 'Importação concluída com sucesso no banco de dados', `${data.length} servidores adicionados.`);
-        alert(`${data.length} servidores foram salvos permanentemente no seu banco de dados.`);
+      if (data && data.length > 0) {
+        // Atualizar estado local com os novos dados vindos do banco
+        setMonitors(prev => {
+          // Evitar duplicatas visuais se loadInitialData rodar em paralelo
+          const existingIds = new Set(prev.map(p => p.id));
+          const onlyNew = data.filter(d => !existingIds.has(d.id));
+          return [...prev, ...onlyNew];
+        });
+        
+        addSystemLog('success', 'Importação concluída', `${data.length} servidores salvos.`);
+        alert(`${data.length} servidores importados e salvos com sucesso!`);
       }
     } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      console.error('Erro fatal ao importar monitores:', e);
-      addSystemLog('error', 'Falha crítica na importação', errorMessage);
+      console.error('Erro fatal:', e);
+      const msg = e instanceof Error ? e.message : 'Erro desconhecido';
+      addSystemLog('error', 'Falha na importação', msg);
       
-      // Fallback local caso o usuário queira continuar
+      // Fallback local se falhar
       const newOnes = imported.map(m => ({
         ...m,
         id: crypto.randomUUID(),
         createdAt: Date.now(),
         active: true
       }));
-      const updated = [...monitors, ...newOnes];
-      setMonitors(updated);
-      saveToLocalStorage('dosp_monitors', updated);
-      alert(`Atenção: Os dados foram carregados apenas localmente.\nMotivo: ${errorMessage}`);
+      setMonitors(prev => [...prev, ...newOnes]);
+      alert(`Os dados foram carregados apenas temporariamente.\nMotivo: ${msg}`);
     }
   };
 

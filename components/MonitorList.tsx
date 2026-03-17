@@ -103,7 +103,6 @@ const MonitorList: React.FC<MonitorListProps> = ({ monitors, onAdd, onDelete, on
 
         if (imported.length > 0) {
           onImport(imported);
-          alert(`${imported.length} servidores importados com sucesso!\nColunas identificadas: ${Object.keys(colMap).filter(k => (colMap as any)[k] !== -1).join(', ')}`);
         } else {
           alert("Nenhum dado válido encontrado nas linhas abaixo do cabeçalho.");
         }
