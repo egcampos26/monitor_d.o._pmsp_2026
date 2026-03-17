@@ -98,9 +98,19 @@ const App: React.FC = () => {
       }
 
     } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
       console.error('Erro ao carregar dados do Supabase:', e);
+      addSystemLog('error', 'Falha ao sincronizar dados com o banco', errorMessage);
+      
       // Fallback para mock apenas se for erro de conexão e não houver dados
-      if (monitors.length === 0) setMonitors(MOCK_MONITORS);
+      if (monitors.length === 0) {
+        const savedMonitors = loadFromLocalStorage('dosp_monitors', []);
+        if (savedMonitors.length > 0) {
+          setMonitors(savedMonitors);
+        } else {
+          setMonitors(MOCK_MONITORS);
+        }
+      }
     } finally {
       setIsLoading(false);
     }
@@ -197,16 +207,55 @@ const App: React.FC = () => {
     saveToLocalStorage('dosp_monitors', updated);
   };
 
-  const importMonitors = (imported: Omit<ServerMonitor, 'id' | 'createdAt'>[]) => {
-    const newOnes = imported.map(m => ({
-      ...m,
-      id: crypto.randomUUID(),
-      createdAt: Date.now(),
-      active: true
-    }));
-    const updated = [...monitors, ...newOnes];
-    setMonitors(updated);
-    saveToLocalStorage('dosp_monitors', updated);
+  const importMonitors = async (imported: Omit<ServerMonitor, 'id' | 'createdAt'>[]) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('Você não está autenticado no Supabase. Por favor, faça login novamente.');
+      }
+
+      addSystemLog('info', 'Iniciando importação para o banco de dados...', `Processando ${imported.length} registros.`);
+
+      const { data, error } = await supabase
+        .from('monitors')
+        .insert(imported.map(m => ({
+          name: m.name,
+          rf: m.rf,
+          role: m.role,
+          notes: m.notes,
+          user_id: session.user.id,
+          active: true
+        })))
+        .select();
+
+      if (error) {
+        console.error('Erro retornado pelo Supabase:', error);
+        throw error;
+      }
+
+      if (data) {
+        setMonitors(prev => [...prev, ...data]);
+        addSystemLog('success', 'Importação concluída com sucesso no banco de dados', `${data.length} servidores adicionados.`);
+        alert(`${data.length} servidores foram salvos permanentemente no seu banco de dados.`);
+      }
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      console.error('Erro fatal ao importar monitores:', e);
+      addSystemLog('error', 'Falha crítica na importação', errorMessage);
+      
+      // Fallback local caso o usuário queira continuar
+      const newOnes = imported.map(m => ({
+        ...m,
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+        active: true
+      }));
+      const updated = [...monitors, ...newOnes];
+      setMonitors(updated);
+      saveToLocalStorage('dosp_monitors', updated);
+      alert(`Atenção: Os dados foram carregados apenas localmente.\nMotivo: ${errorMessage}`);
+    }
   };
 
   // Scheduling Actions
@@ -437,7 +486,6 @@ const App: React.FC = () => {
                 <label className="block text-sm font-semibold text-slate-700 mb-2">E-mail</label>
                 <input 
                   type="email" 
-                  defaultValue="contato@pmsp.gov.br"
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   placeholder="seu@email.com.br"
                 />
@@ -449,7 +497,6 @@ const App: React.FC = () => {
                 </div>
                 <input 
                   type="password" 
-                  defaultValue="123456"
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   placeholder="••••••••"
                 />
