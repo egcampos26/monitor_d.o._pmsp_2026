@@ -273,7 +273,7 @@ const OccurrenceAccordionItem: React.FC<{ occ: any, onUpdateStatus: (status: 've
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-xs font-black text-slate-900 uppercase tracking-tighter">{occ.monitorName}</span>
+              <span className="text-sm font-black text-blue-600 uppercase tracking-tight">{occ.monitorName}</span>
               <span className="text-[10px] text-slate-400 font-mono">RF: {occ.monitorRf}</span>
               {occ.status === 'verified' && (
                 <span className="text-[9px] bg-green-600 text-white px-1.5 py-0.5 rounded-full font-bold animate-in zoom-in duration-300">VERIFICADO</span>
@@ -282,7 +282,7 @@ const OccurrenceAccordionItem: React.FC<{ occ: any, onUpdateStatus: (status: 've
                 <span className="text-[9px] bg-slate-500 text-white px-1.5 py-0.5 rounded-full font-bold">DESCARTADO</span>
               )}
             </div>
-            <h4 className={`font-bold text-sm line-clamp-1 ${occ.status === 'verified' ? 'text-green-800' : 'text-blue-600'}`}>{occ.title}</h4>
+            <h4 className={`font-bold text-xs line-clamp-1 ${occ.status === 'verified' ? 'text-green-800' : 'text-slate-700'}`}>{occ.title}</h4>
           </div>
         </div>
         
