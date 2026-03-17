@@ -26,13 +26,18 @@ export const addSystemLog = async (severity: LogSeverity, message: string, detai
       }
     }
 
+    // Pegar sessão atual para o user_id
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id || null;
+
     // Persiste no Supabase
     const { error } = await supabase
       .from('system_logs')
       .insert([{
         type: severity,
         message: message,
-        detail: detailsString ? { content: detailsString } : null
+        detail: detailsString ? { content: detailsString } : null,
+        user_id: userId
       }]);
 
     if (error) console.error('Erro ao salvar log no Supabase:', error);

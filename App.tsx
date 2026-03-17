@@ -235,7 +235,7 @@ const App: React.FC = () => {
         user_id: session.user.id
       }));
 
-      addSystemLog('info', 'Enviando ao Supabase...', `Total: ${insertData.length} registros.`);
+      console.log('DEBUG: Iniciando processamento de batch...', insertData);
 
       const { data, error } = await supabase
         .from('monitors')
@@ -244,10 +244,12 @@ const App: React.FC = () => {
 
       if (error) {
         console.error('Erro retornado pelo Supabase (Bulk):', error);
+        alert('ERRO SUPABASE: ' + error.message);
         throw error;
       }
 
       const rowsInserted = data?.length || 0;
+      console.log('DEBUG: Linhas retornadas pelo select:', rowsInserted);
 
       if (rowsInserted > 0) {
         setMonitors(prev => {
@@ -261,12 +263,15 @@ const App: React.FC = () => {
         addSystemLog('success', 'Banco Corretamente Atualizado', `${rowsInserted} servidores salvos permanentemente.`);
         alert(`${rowsInserted} servidores foram gravados com sucesso no banco de dados.`);
       } else {
-        addSystemLog('warning', 'Retorno vazio do banco de dados', 'Nenhum erro reportado, mas 0 linhas foram inseridas. Verifique permissões RLS.');
-        throw new Error('O servidor respondeu com sucesso, mas não gravou os dados. Isso geralmente acontece por falta de permissão.');
+        const warningMsg = 'O banco respondeu OK, mas gravou 0 linhas. Isso é RLS bloqueando o acesso.';
+        addSystemLog('warning', 'Retorno vazio', warningMsg);
+        alert('AVISO: ' + warningMsg);
+        throw new Error(warningMsg);
       }
     } catch (e) {
-      console.error('Erro fatal:', e);
       const msg = e instanceof Error ? e.message : 'Erro desconhecido';
+      console.error('Erro fatal:', e);
+      alert('FALHA NA IMPORTAÇÃO: ' + msg);
       addSystemLog('error', 'Falha na importação', msg);
       
       // Fallback local se falhar
