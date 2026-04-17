@@ -364,7 +364,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onClearHistory, onUp
                 </div>
 
                 {expandedRowIds.has(monitorId) && (
-                  <div className="px-6 pb-6 animate-in slide-in-from-top-2 duration-300 space-y-6">
+                  <div className="pl-6 md:pl-16 pr-6 pb-6 animate-in slide-in-from-top-2 duration-300 space-y-6">
                     <div className="border-t border-slate-50 pt-4">
                       {/* Agrupar ocorrências deste monitor por data */}
                       {Object.entries(
@@ -380,19 +380,20 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onClearHistory, onUp
                          };
                          return parse(b[0]) - parse(a[0]);
                       }).map(([date, dateOccs]: [string, any]) => (
-                        <div key={date} className="mb-6 last:mb-0">
-                          <div className="flex items-center gap-4 mb-3">
-                            <span className="bg-slate-900 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                        <div key={date} className="group/date flex gap-4 mb-4 last:mb-0 items-start">
+                          <div className="flex flex-col items-center pt-1 shrink-0 w-20">
+                            <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tight shadow-sm">
                               {date}
                             </span>
-                            <div className="h-px bg-slate-100 flex-1"></div>
+                            <div className="w-px bg-slate-100 flex-1 mt-2 min-h-[20px]"></div>
                           </div>
-                          <div className="space-y-3">
+                          <div className="flex-1 space-y-2">
                             {dateOccs.map((occ: any) => (
                               <OccurrenceAccordionItem 
                                 key={occ.id} 
                                 occ={occ} 
-                                onUpdateStatus={(status) => onUpdateOccurrence(occ.historyId, occ.id, status)}
+                                compact={true}
+                                onUpdateStatus={(status) => onUpdateOccurrence(occ.history_id || occ.historyId, occ.id, status)}
                               />
                             ))}
                           </div>
@@ -423,7 +424,11 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onClearHistory, onUp
   );
 };
 
-const OccurrenceAccordionItem: React.FC<{ occ: any, onUpdateStatus: (status: 'verified' | 'dismissed' | 'pending') => void }> = ({ occ, onUpdateStatus }) => {
+const OccurrenceAccordionItem: React.FC<{ 
+  occ: any, 
+  onUpdateStatus: (status: 'verified' | 'dismissed' | 'pending') => void,
+  compact?: boolean 
+}> = ({ occ, onUpdateStatus, compact }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const isSearchLink = occ.url.includes('ep_busca_materia');
 
@@ -434,72 +439,75 @@ const OccurrenceAccordionItem: React.FC<{ occ: any, onUpdateStatus: (status: 've
       'border-gray-100 hover:border-blue-200'
     }`}>
       <div 
-        className={`p-4 cursor-pointer flex items-start justify-between ${occ.status === 'verified' ? 'bg-green-50/30' : 'bg-white hover:bg-gray-50/50'}`}
+        className={`${compact ? 'p-2.5' : 'p-4'} cursor-pointer flex items-start justify-between ${occ.status === 'verified' ? 'bg-green-50/30' : 'bg-white hover:bg-gray-50/50'}`}
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="flex items-start gap-4 flex-1">
+        <div className="flex items-start gap-3 flex-1">
           <div className={`mt-0.5 p-1 rounded transition-transform duration-300 ${isExpanded ? 'rotate-180 text-blue-600 bg-blue-50' : 'text-slate-300'}`}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
+            {!compact && (
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-sm font-black text-blue-600 uppercase tracking-tight">{occ.monitorName}</span>
+                <span className="text-[10px] text-slate-400 font-mono">RF: {occ.monitorRf}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-sm font-black text-blue-600 uppercase tracking-tight">{occ.monitorName}</span>
-              <span className="text-[10px] text-slate-400 font-mono">RF: {occ.monitorRf}</span>
               {occ.status === 'verified' && (
-                <span className="text-[9px] bg-green-600 text-white px-1.5 py-0.5 rounded-full font-bold animate-in zoom-in duration-300">VERIFICADO</span>
+                <span className="text-[8px] bg-green-600 text-white px-1.5 py-0.5 rounded-full font-bold shrink-0">VERIFICADO</span>
               )}
               {occ.status === 'dismissed' && (
-                <span className="text-[9px] bg-slate-500 text-white px-1.5 py-0.5 rounded-full font-bold">DESCARTADO</span>
+                <span className="text-[8px] bg-slate-500 text-white px-1.5 py-0.5 rounded-full font-bold shrink-0">DESCARTADO</span>
               )}
+              <h4 className={`font-bold ${compact ? 'text-[11px]' : 'text-xs'} line-clamp-1 ${occ.status === 'verified' ? 'text-green-800' : 'text-slate-700'}`}>{occ.title}</h4>
             </div>
-            <h4 className={`font-bold text-xs line-clamp-1 ${occ.status === 'verified' ? 'text-green-800' : 'text-slate-700'}`}>{occ.title}</h4>
           </div>
         </div>
         
         <div className="flex items-center gap-3 shrink-0 ml-4">
-          <div className="flex items-center bg-slate-50 rounded-lg p-1 border border-slate-100 gap-1">
+          <div className={`flex items-center bg-slate-50 rounded-lg ${compact ? 'p-0.5' : 'p-1'} border border-slate-100 gap-1`}>
             <button 
               onClick={(e) => { e.stopPropagation(); onUpdateStatus(occ.status === 'verified' ? 'pending' : 'verified'); }}
-              title={occ.status === 'verified' ? "Desmarcar verificado" : "Marcar como verificado"}
               className={`p-1.5 rounded-md transition-all ${
                 occ.status === 'verified' 
                   ? 'bg-green-600 text-white shadow-sm' 
                   : 'text-slate-400 hover:text-green-600 hover:bg-green-50'
               }`}
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
               </svg>
             </button>
             <button 
               onClick={(e) => { e.stopPropagation(); onUpdateStatus(occ.status === 'dismissed' ? 'pending' : 'dismissed'); }}
-              title={occ.status === 'dismissed' ? "Remover do descarte" : "Indicar que não corresponde"}
               className={`p-1.5 rounded-md transition-all ${
                 occ.status === 'dismissed' 
                   ? 'bg-red-600 text-white shadow-sm' 
                   : 'text-slate-400 hover:text-red-600 hover:bg-red-50'
               }`}
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
-          <div className="flex flex-col items-end gap-1 shrink-0 min-w-[60px]">
-            <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-tighter ${
+          <div className="flex flex-col items-end gap-0.5 shrink-0">
+            <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-tighter ${
               occ.confidence === 'high' ? 'bg-green-100 text-green-700' : 
               occ.confidence === 'medium' ? 'bg-amber-100 text-amber-700' : 
               'bg-red-100 text-red-700'
             }`}>
               {occ.confidence === 'high' ? 'Alta' : occ.confidence === 'medium' ? 'Média' : 'Baixa'}
             </span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">PG {occ.page}</span>
+            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none">PG {occ.page}</span>
           </div>
         </div>
       </div>
+
 
       {isExpanded && (
         <div className="px-4 pb-4 pt-0 animate-in fade-in slide-in-from-top-2 duration-300">
