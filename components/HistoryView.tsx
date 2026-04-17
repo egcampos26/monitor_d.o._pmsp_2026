@@ -380,14 +380,16 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onClearHistory, onUp
                          };
                          return parse(b[0]) - parse(a[0]);
                       }).map(([date, dateOccs]: [string, any]) => (
-                        <div key={date} className="group/date flex gap-4 mb-4 last:mb-0 items-start">
-                          <div className="flex flex-col items-center pt-1 shrink-0 w-20">
-                            <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tight shadow-sm">
+                        <div key={date} className="group/date flex items-center mb-6 last:mb-0">
+                          {/* Coluna da Data com efeito 3D e Sobreposição */}
+                          <div className="shrink-0 w-28 relative z-20 flex justify-end pr-0">
+                            <span className="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-xl shadow-slate-900/40 transform translate-x-3 -rotate-1 border border-slate-800">
                               {date}
                             </span>
-                            <div className="w-px bg-slate-100 flex-1 mt-2 min-h-[20px]"></div>
                           </div>
-                          <div className="flex-1 space-y-2">
+                          
+                          {/* Espaçador/Linha vertical decorativa (opcional, ocultado para o efeito solicitado) */}
+                          <div className="flex-1 space-y-2 relative z-10 pl-3 border-l-2 border-slate-50 py-1">
                             {dateOccs.map((occ: any) => (
                               <OccurrenceAccordionItem 
                                 key={occ.id} 
