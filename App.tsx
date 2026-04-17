@@ -413,7 +413,7 @@ const App: React.FC = () => {
     });
   };
 
-  const handleAnalysisFinish = async (date: string, format: DospFormat, results: DospOccurrence[]) => {
+  const handleAnalysisFinish = async (date: string, format: DospFormat, results: DospOccurrence[], shouldRedirect: boolean = true) => {
     try {
       const uniqueMonitors = new Set(results.map(r => r.monitorId)).size;
       const [y, m, d] = date.split('-');
@@ -504,7 +504,9 @@ const App: React.FC = () => {
       };
       setHistory(prev => sortHistory([newEntry, ...prev]));
     }
-    setActiveTab('history');
+    if (shouldRedirect) {
+      setActiveTab('history');
+    }
   };
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center text-slate-500">Carregando...</div>;
