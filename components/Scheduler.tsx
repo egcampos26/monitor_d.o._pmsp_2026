@@ -1,21 +1,23 @@
 
 import React, { useState } from 'react';
-import { ScheduledAnalysis, Frequency, DospFormat } from '../types';
+import { ScheduledAnalysis, Frequency, DospFormat, ServerMonitor } from '../types';
 
 interface SchedulerProps {
   schedules: ScheduledAnalysis[];
+  monitors: ServerMonitor[];
   onAdd: (schedule: Omit<ScheduledAnalysis, 'id' | 'createdAt'>) => void;
   onDelete: (id: string) => void;
   onToggle: (id: string) => void;
 }
 
-const Scheduler: React.FC<SchedulerProps> = ({ schedules, onAdd, onDelete, onToggle }) => {
+const Scheduler: React.FC<SchedulerProps> = ({ schedules, monitors, onAdd, onDelete, onToggle }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState('');
   const [frequency, setFrequency] = useState<Frequency>('daily');
   const [format, setFormat] = useState<DospFormat>('JSON');
   const [time, setTime] = useState('08:00');
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedMonitorIds, setSelectedMonitorIds] = useState<Set<string>>(new Set());
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,11 +29,28 @@ const Scheduler: React.FC<SchedulerProps> = ({ schedules, onAdd, onDelete, onTog
       format,
       time,
       nextRun: new Date(`${startDate}T${time}`).toISOString(),
-      active: true
+      active: true,
+      monitor_ids: selectedMonitorIds.size > 0 ? Array.from(selectedMonitorIds) : undefined
     });
     
     setName('');
+    setSelectedMonitorIds(new Set());
     setShowAdd(false);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedMonitorIds.size === monitors.length) {
+      setSelectedMonitorIds(new Set());
+    } else {
+      setSelectedMonitorIds(new Set(monitors.map(m => m.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const next = new Set(selectedMonitorIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedMonitorIds(next);
   };
 
   const getFrequencyLabel = (f: Frequency) => {
@@ -125,6 +144,41 @@ const Scheduler: React.FC<SchedulerProps> = ({ schedules, onAdd, onDelete, onTog
               </div>
             </div>
 
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-500 uppercase">Monitorados para esta Tarefa</label>
+                <button 
+                  type="button"
+                  onClick={toggleSelectAll}
+                  className="text-[10px] font-bold text-blue-600 hover:underline"
+                >
+                  {selectedMonitorIds.size === monitors.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
+                </button>
+              </div>
+              <div className="max-h-[150px] overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50 bg-slate-50/50">
+                {monitors.map(m => (
+                  <label key={m.id} className="p-2.5 flex items-center gap-3 cursor-pointer hover:bg-white transition-colors">
+                    <input 
+                      type="checkbox"
+                      checked={selectedMonitorIds.has(m.id)}
+                      onChange={() => toggleSelect(m.id)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-slate-800 leading-none">{m.name}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">{m.role} {m.rf ? `• ${m.rf}` : ''}</p>
+                    </div>
+                  </label>
+                ))}
+                {monitors.length === 0 && (
+                  <p className="p-4 text-center text-gray-400 text-xs italic">Nenhum monitorado salvo no sistema.</p>
+                )}
+              </div>
+              <p className="text-[10px] text-slate-400 italic">
+                * Se nenhum for selecionado, a análise utilizará <strong>todos os monitores ativos</strong> no momento da execução.
+              </p>
+            </div>
+
             <div className="flex justify-end gap-3 pt-2">
               <button 
                 type="button"
@@ -169,6 +223,9 @@ const Scheduler: React.FC<SchedulerProps> = ({ schedules, onAdd, onDelete, onTog
                     Próxima: {new Date(s.nextRun).toLocaleDateString()} às {s.time}
                   </span>
                   <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono uppercase">{s.format}</span>
+                  <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold">
+                    {s.monitor_ids ? `${s.monitor_ids.length} selecionados` : 'Todos ativos'}
+                  </span>
                 </div>
               </div>
             </div>

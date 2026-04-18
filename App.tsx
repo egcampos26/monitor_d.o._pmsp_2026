@@ -304,7 +304,8 @@ const App: React.FC = () => {
           frequency: newS.frequency,
           time: newS.time,
           active: true,
-          format: newS.format || 'JSON'
+          format: newS.format || 'JSON',
+          monitor_ids: newS.monitor_ids
         }])
         .select()
         .single();
@@ -581,6 +582,7 @@ const App: React.FC = () => {
       {activeTab === 'scheduler' && (
         <Scheduler 
           schedules={schedules} 
+          monitors={monitors}
           onAdd={addSchedule} 
           onDelete={deleteSchedule} 
           onToggle={toggleSchedule}
