@@ -204,7 +204,9 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onClearHistory, onUp
                         <td className="px-6 py-4">
                           <div className="flex flex-col">
                             <span className="font-bold text-slate-900 text-base">{h.date}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">{h.id.slice(0, 8)}</span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                              Análise às {new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
                           </div>
                         </td>
                         <td className="px-6 py-4">

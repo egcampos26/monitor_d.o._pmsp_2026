@@ -84,6 +84,7 @@ const App: React.FC = () => {
           ...h,
           totalOccurrences: h.total_comments || h.total_occurrences,
           monitorsFound: h.monitors_found,
+          timestamp: h.created_at ? new Date(h.created_at).getTime() : Date.now(),
           results: (h.results || []).map((r: any) => ({
             id: r.id,
             monitorId: r.monitor_id,
