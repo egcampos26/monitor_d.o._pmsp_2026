@@ -12,15 +12,17 @@ interface MonitorListProps {
   onDeleteAll: () => void;
   onToggle: (id: string) => void;
   onImport: (monitors: Omit<ServerMonitor, 'id' | 'createdAt'>[]) => void;
+  onDeleteMultiple: (ids: string[]) => void;
 }
 
-const MonitorList: React.FC<MonitorListProps> = ({ monitors, onAdd, onDelete, onDeleteAll, onToggle, onImport }) => {
+const MonitorList: React.FC<MonitorListProps> = ({ monitors, onAdd, onDelete, onDeleteAll, onToggle, onImport, onDeleteMultiple }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [newRf, setNewRf] = useState('');
   const [newRole, setNewRole] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,8 +35,9 @@ const MonitorList: React.FC<MonitorListProps> = ({ monitors, onAdd, onDelete, on
     setShowAdd(false);
   };
 
-  const findHeaderIndex = (headers: string[], aliases: string[]): number => {
-    return headers.findIndex(h => {
+  const findHeaderIndex = (headers: string[], aliases: string[], excludeIndices: number[] = []): number => {
+    return headers.findIndex((h, idx) => {
+      if (excludeIndices.includes(idx)) return false;
       const normalizedH = normalizeString(String(h || ''));
       return aliases.some(alias => normalizedH.includes(normalizeString(alias)));
     });
@@ -68,12 +71,17 @@ const MonitorList: React.FC<MonitorListProps> = ({ monitors, onAdd, onDelete, on
 
         const headers = data[0].map(h => String(h || ''));
         
-        // Mapeamento extra flexível de colunas
+        // Mapeamento extra flexível de colunas sem reutilizar o mesmo índice
+        const nameIdx = findHeaderIndex(headers, ['nome', 'servidor', 'completo', 'name', 'serv', 'funcionario', 'funcionário']);
+        const rfIdx = findHeaderIndex(headers, ['rf', 'registro', 'funcional', 'matricula', 'matrícula', 'reg', 'cie'], nameIdx !== -1 ? [nameIdx] : []);
+        const roleIdx = findHeaderIndex(headers, ['cargo', 'funcao', 'função', 'role', 'atribuicao', 'atribuição', 'posicao', 'posição'], [nameIdx, rfIdx].filter(i => i !== -1));
+        const notesIdx = findHeaderIndex(headers, ['obs', 'observacao', 'observação', 'notas', 'notes', 'comentário', 'memo'], [nameIdx, rfIdx, roleIdx].filter(i => i !== -1));
+
         const colMap = {
-          name: findHeaderIndex(headers, ['nome', 'servidor', 'completo', 'name', 'serv', 'funcionario', 'funcionário']),
-          rf: findHeaderIndex(headers, ['rf', 'registro', 'funcional', 'matricula', 'matrícula', 'reg', 'cie', 'unidade']),
-          role: findHeaderIndex(headers, ['cargo', 'funcao', 'função', 'role', 'atribuicao', 'atribuição', 'posicao', 'posição']),
-          notes: findHeaderIndex(headers, ['obs', 'observacao', 'observação', 'notas', 'notes', 'comentário', 'memo'])
+          name: nameIdx,
+          rf: rfIdx,
+          role: roleIdx,
+          notes: notesIdx
         };
 
         const identifiedCols = Object.entries(colMap)
@@ -130,6 +138,29 @@ const MonitorList: React.FC<MonitorListProps> = ({ monitors, onAdd, onDelete, on
   const handleClearAll = () => {
     if (window.confirm("ATENÇÃO: Você tem certeza que deseja apagar TODOS os servidores da sua lista de monitoramento? Esta ação não pode ser desfeita.")) {
       onDeleteAll();
+      setSelectedIds([]);
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedIds.length === monitors.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(monitors.map(m => m.id));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.length === 0) return;
+    if (window.confirm(`Você tem certeza que deseja excluir os ${selectedIds.length} servidores selecionados?`)) {
+      onDeleteMultiple(selectedIds);
+      setSelectedIds([]);
     }
   };
 
@@ -141,6 +172,17 @@ const MonitorList: React.FC<MonitorListProps> = ({ monitors, onAdd, onDelete, on
           <p className="text-slate-500">Gerencie os servidores que o sistema deve rastrear no DOSP.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {selectedIds.length > 0 && (
+            <button 
+              onClick={handleDeleteSelected}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-sm animate-in fade-in duration-200"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Apagar Selecionados ({selectedIds.length})
+            </button>
+          )}
           {monitors.length > 0 && (
             <button 
               onClick={handleClearAll}
@@ -240,6 +282,14 @@ const MonitorList: React.FC<MonitorListProps> = ({ monitors, onAdd, onDelete, on
         <table className="w-full text-left">
           <thead className="bg-gray-50 border-b border-gray-100 text-xs text-slate-500 uppercase font-bold">
             <tr>
+              <th className="px-6 py-4 w-12 text-center">
+                <input 
+                  type="checkbox"
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                  checked={monitors.length > 0 && selectedIds.length === monitors.length}
+                  onChange={handleToggleSelectAll}
+                />
+              </th>
               <th className="px-6 py-4">Nome / Unidade</th>
               <th className="px-6 py-4">RF / CIE</th>
               <th className="px-6 py-4">Cargo / Função</th>
@@ -250,7 +300,15 @@ const MonitorList: React.FC<MonitorListProps> = ({ monitors, onAdd, onDelete, on
           </thead>
           <tbody className="divide-y divide-gray-100 text-sm">
             {monitors.map(m => (
-              <tr key={m.id} className="hover:bg-gray-50 group">
+              <tr key={m.id} className={`hover:bg-gray-50 group ${selectedIds.includes(m.id) ? 'bg-blue-50/40' : ''}`}>
+                <td className="px-6 py-4 w-12 text-center">
+                  <input 
+                    type="checkbox"
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                    checked={selectedIds.includes(m.id)}
+                    onChange={() => handleToggleSelect(m.id)}
+                  />
+                </td>
                 <td className="px-6 py-4 font-semibold text-slate-900">{m.name}</td>
                 <td className="px-6 py-4 font-mono text-slate-500">{m.rf}</td>
                 <td className="px-6 py-4 text-slate-600">{m.role}</td>
@@ -267,7 +325,10 @@ const MonitorList: React.FC<MonitorListProps> = ({ monitors, onAdd, onDelete, on
                 </td>
                 <td className="px-6 py-4 text-right">
                   <button 
-                    onClick={() => onDelete(m.id)}
+                    onClick={() => {
+                      onDelete(m.id);
+                      setSelectedIds(prev => prev.filter(id => id !== m.id));
+                    }}
                     className="text-gray-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -279,7 +340,7 @@ const MonitorList: React.FC<MonitorListProps> = ({ monitors, onAdd, onDelete, on
             ))}
             {monitors.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
                   <p>Sua lista está vazia. Comece adicionando servidores para monitorar.</p>
                 </td>
               </tr>

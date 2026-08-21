@@ -82,6 +82,28 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onClearHistory, onUp
     XLSX.writeFile(wb, `DOSP_${entry.date}.xlsx`);
   };
 
+  const handleExportAllXlsx = () => {
+    if (history.length === 0) return;
+    const rows = history.flatMap(h => 
+      h.results.map(occ => ({
+        'Data da Edição': h.date,
+        'Nome do Servidor': occ.monitorName,
+        'RF': occ.monitorRf,
+        'Título da Matéria': occ.title,
+        'Conteúdo': occ.content,
+        'Página': occ.page || 'N/D',
+        'Confiança': occ.confidence,
+        'Tipo de Match': occ.matchType,
+        'Link': occ.url,
+        'Status': occ.status === 'verified' ? 'Verificado' : occ.status === 'dismissed' ? 'Ignorado' : 'Pendente'
+      }))
+    );
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Todas Ocorrências');
+    XLSX.writeFile(wb, `Backup_Completo_DOSP_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   // Lógica para aba MONITORADOS
   const groupOccurrencesByMonitor = () => {
     const allOccs = history.flatMap(h => 
@@ -140,6 +162,17 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onClearHistory, onUp
                   className="px-4 py-2 rounded-lg text-sm font-bold text-slate-500 hover:bg-slate-100 transition-all"
                 >
                   Cancelar
+                </button>
+              )}
+              {history.length > 0 && (
+                <button 
+                  onClick={handleExportAllXlsx}
+                  className="bg-white border border-green-200 text-green-600 hover:bg-green-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  Exportar Backup (Excel)
                 </button>
               )}
               {history.length > 0 && (

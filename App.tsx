@@ -12,6 +12,7 @@ import Scheduler from './components/Scheduler';
 import LogView from './components/LogView';
 import { supabase } from './services/supabaseClient';
 import { addSystemLog } from './services/logService';
+import { normalizeString, normalizeRf } from './services/utils';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -226,6 +227,25 @@ const App: React.FC = () => {
     }
   };
 
+  const deleteMonitors = async (ids: string[]) => {
+    try {
+      const { error } = await supabase
+        .from('monitors')
+        .delete()
+        .in('id', ids);
+
+      if (error) throw error;
+      setMonitors(prev => prev.filter(m => !ids.includes(m.id)));
+      addSystemLog('info', 'Monitores removidos em lote do Supabase', `Quantidade: ${ids.length}`);
+    } catch (e) {
+      console.error('Erro ao deletar monitores em lote:', e);
+      // Fallback local
+      const remaining = monitors.filter(m => !ids.includes(m.id));
+      setMonitors(remaining);
+      saveToLocalStorage('dosp_monitors', remaining);
+    }
+  };
+
   const clearAllMonitors = () => {
     setMonitors([]);
     saveToLocalStorage('dosp_monitors', []);
@@ -238,14 +258,43 @@ const App: React.FC = () => {
   };
 
   const importMonitors = async (imported: Omit<ServerMonitor, 'id' | 'createdAt'>[]) => {
+    // 1. Deduplicate within the imported file itself
+    const uniqueImported: Omit<ServerMonitor, 'id' | 'createdAt'>[] = [];
+    const seen = new Set<string>();
+
+    for (const item of imported) {
+      const normName = normalizeString(item.name);
+      const normRf = normalizeRf(item.rf);
+      const key = `${normName}|${normRf}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueImported.push(item);
+      }
+    }
+
+    // 2. Filter out duplicates that already exist in the monitors list
+    const newItemsToImport = uniqueImported.filter(item => {
+      return !monitors.some(existing => 
+        normalizeString(existing.name) === normalizeString(item.name) && 
+        normalizeRf(existing.rf) === normalizeRf(item.rf)
+      );
+    });
+
+    const skippedCount = imported.length - newItemsToImport.length;
+
+    if (newItemsToImport.length === 0) {
+      alert(`Nenhum novo servidor importado. Todos os ${imported.length} servidores do arquivo já estão cadastrados ou constam em duplicidade.`);
+      return;
+    }
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Sessão expirada. Faça login no banco de dados!');
-      addSystemLog('info', 'Sessão verificada para importação', { userId: session.user.id, records: imported.length });
+      addSystemLog('info', 'Sessão verificada para importação', { userId: session.user.id, records: newItemsToImport.length });
 
       // Inserção em lote (Bulk Insert)
       // Forçando o user_id explicitamente para cada linha garantir que o RLS não descarte nada
-      const insertData = imported.map(m => ({
+      const insertData = newItemsToImport.map(m => ({
         name: m.name || 'Sem Nome',
         rf: m.rf || '0',
         role: m.role || '',
@@ -279,6 +328,12 @@ const App: React.FC = () => {
         });
         
         addSystemLog('success', 'Banco Corretamente Atualizado', `${rowsInserted} servidores salvos permanentemente.`);
+        
+        let successMsg = `Importação concluída com sucesso!\n${rowsInserted} novos servidores adicionados.`;
+        if (skippedCount > 0) {
+          successMsg += `\n${skippedCount} servidores foram ignorados por já estarem cadastrados ou estarem duplicados no arquivo.`;
+        }
+        alert(successMsg);
       } else {
         const warningMsg = 'O banco respondeu OK, mas gravou 0 linhas. Isso é RLS bloqueando o acesso.';
         addSystemLog('warning', 'Retorno vazio', warningMsg);
@@ -290,13 +345,24 @@ const App: React.FC = () => {
       addSystemLog('error', 'Falha na importação', msg);
       
       // Fallback local se falhar
-      const newOnes = imported.map(m => ({
+      const newOnes = newItemsToImport.map(m => ({
         ...m,
         id: crypto.randomUUID(),
         createdAt: Date.now(),
         active: true
       }));
-      setMonitors(prev => [...prev, ...newOnes]);
+      setMonitors(prev => {
+        const updated = [...prev, ...newOnes];
+        saveToLocalStorage('dosp_monitors', updated);
+        return updated;
+      });
+
+      let localMsg = `Importação concluída localmente (modo offline): ${newOnes.length} novos servidores adicionados.`;
+      if (skippedCount > 0) {
+        localMsg += `\n${skippedCount} duplicados ignorados.`;
+      }
+      localMsg += `\n\n(Aviso - erro ao salvar na nuvem: ${msg})`;
+      alert(localMsg);
     }
   };
 
@@ -642,6 +708,7 @@ const App: React.FC = () => {
           onDeleteAll={clearAllMonitors}
           onToggle={toggleMonitor}
           onImport={importMonitors}
+          onDeleteMultiple={deleteMonitors}
         />
       )}
       {activeTab.startsWith('history') && (
