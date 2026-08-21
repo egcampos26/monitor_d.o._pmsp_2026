@@ -137,6 +137,22 @@ const App: React.FC = () => {
     }
   };
 
+  const refreshMonitors = async () => {
+    try {
+      const { data: monitorsData, error: monitorsError } = await supabase
+        .from('monitors')
+        .select('*')
+        .order('name');
+      
+      if (!monitorsError && monitorsData) {
+        setMonitors(monitorsData);
+        saveToLocalStorage('dosp_monitors', monitorsData);
+      }
+    } catch (e) {
+      console.error('Erro ao atualizar lista de monitores:', e);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const email = (e.target as any)[0].value;
@@ -201,6 +217,7 @@ const App: React.FC = () => {
       if (data) {
         setMonitors(prev => [...prev, data]);
         addSystemLog('success', 'Monitor adicionado com sucesso', `Servidor: ${data.name}`);
+        refreshMonitors();
       }
     } catch (e) {
       console.error('Erro ao adicionar monitor:', e);
@@ -334,6 +351,7 @@ const App: React.FC = () => {
           successMsg += `\n${skippedCount} servidores foram ignorados por já estarem cadastrados ou estarem duplicados no arquivo.`;
         }
         alert(successMsg);
+        refreshMonitors();
       } else {
         const warningMsg = 'O banco respondeu OK, mas gravou 0 linhas. Isso é RLS bloqueando o acesso.';
         addSystemLog('warning', 'Retorno vazio', warningMsg);
