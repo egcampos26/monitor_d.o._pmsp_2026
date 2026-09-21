@@ -297,9 +297,11 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onClearHistory, onUp
                                     onUpdateStatus={(status) => onUpdateOccurrence(h.id, occ.id, status)}
                                   />
                                 ))}
-                                {h.totalOccurrences === 0 && (
+                                {h.results.length === 0 && (
                                   <div className="text-center py-8 bg-white rounded-xl border border-dashed border-slate-200 text-slate-400 text-sm">
-                                    Nenhuma ocorrência relevante foi encontrada nesta análise.
+                                    {h.totalOccurrences > 0 
+                                      ? "Os detalhes destas ocorrências não foram salvos ou estão indisponíveis no banco de dados."
+                                      : "Nenhuma ocorrência relevante foi encontrada nesta análise."}
                                   </div>
                                 )}
                               </div>

@@ -563,9 +563,10 @@ const App: React.FC = () => {
 
         // 2. Salvar Ocorrências Individuais
         if (results.length > 0 && historyData) {
+          const isValidUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
           const occurrencesBatch = results.map(r => ({
             history_id: historyData.id,
-            monitor_id: r.monitorId.startsWith('temp-') ? null : r.monitorId,
+            monitor_id: (r.monitorId && isValidUUID(r.monitorId)) ? r.monitorId : null,
             monitor_name: r.monitorName,
             monitor_rf: r.monitorRf,
             title: r.title,
@@ -581,7 +582,10 @@ const App: React.FC = () => {
             .from('occurrences')
             .insert(occurrencesBatch);
 
-          if (occError) throw occError;
+          if (occError) {
+            console.error('Erro ao inserir ocorrências:', occError);
+            throw occError;
+          }
         }
 
         addSystemLog('success', 'Análise salva no Supabase', `${results.length} ocorrências persistidas.`);
